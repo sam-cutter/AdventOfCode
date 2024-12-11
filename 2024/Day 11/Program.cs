@@ -15,18 +15,22 @@ namespace Day_11
         {
             List<ulong> initialStones = File.ReadAllText("input.txt").Trim().Split(' ').Select(ulong.Parse).ToList();
 
+            // For part one
+            PartOne(initialStones);
+
+            Console.ReadKey();
+        }
+
+        static void PartOne(List<ulong> initialStones)
+        {
             List<ulong> stones = initialStones.ToList();
 
             for (int i = 0; i < blinks; i++)
             {
                 stones = Blink(stones);
-
-                Console.WriteLine($"Blink {i + 1}/{blinks}");
             }
 
             Console.WriteLine(stones.Count);
-
-            Console.ReadKey();
         }
 
         static List<ulong> Blink(List<ulong> initialStones)
@@ -53,21 +57,6 @@ namespace Day_11
 
             ulong leftHalf = (ulong)Math.Floor(stone / Math.Pow(10, (log10stone + 1) / 2));
             ulong rightHalf = stone - leftHalf * (ulong)(Math.Pow(10, (log10stone + 1) / 2));
-
-            int leftPowerOf10 = 0;
-
-            while (leftHalf % (ulong)Math.Pow(10, leftPowerOf10 + 2) == 0) leftPowerOf10++;
-
-            leftHalf /= (ulong)Math.Pow(10, leftPowerOf10);
-
-            if (!(rightHalf == 0))
-            {
-                int rightPowerOf10 = 0;
-
-                while (rightHalf % (ulong)Math.Pow(10, rightPowerOf10 + 2) == 0) rightPowerOf10++;
-
-                rightHalf /= (ulong)Math.Pow(10, rightPowerOf10);
-            }
 
             return (leftHalf, rightHalf);
         }
