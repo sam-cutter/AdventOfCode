@@ -2,50 +2,95 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Day_11
 {
     internal class Program
     {
-        const int blinks = 25;
-
         static void Main(string[] args)
         {
-            List<ulong> initialStones = File.ReadAllText("input.txt").Trim().Split(' ').Select(ulong.Parse).ToList();
+            List<ulong> initialStonesList = File
+                .ReadAllText("input.txt")
+                .Trim()
+                .Split(' ')
+                .Select(ulong.Parse)
+                .ToList();
+
+            Dictionary<ulong, ulong> initialStones = new Dictionary<ulong, ulong>();
+
+            foreach (ulong stone in initialStonesList)
+            {
+                if (initialStones.ContainsKey(stone)) initialStones[stone] += 1;
+                else initialStones.Add(stone, 1);
+            }
 
             // For part one
             PartOne(initialStones);
 
+            // For part two
+            PartTwo(initialStones);
+
             Console.ReadKey();
         }
 
-        static void PartOne(List<ulong> initialStones)
+        static void PartOne(Dictionary<ulong, ulong> initialStones)
         {
-            List<ulong> stones = initialStones.ToList();
+            Console.WriteLine(PerformBlinks(initialStones, 25));
+        }
+
+        static void PartTwo(Dictionary<ulong, ulong> initialStones)
+        {
+            Console.WriteLine(PerformBlinks(initialStones, 75));
+        }
+
+        static ulong PerformBlinks(Dictionary<ulong, ulong> initialStones, int blinks)
+        {
+            Dictionary<ulong, ulong> stones = initialStones.ToDictionary(x => x.Key, x => x.Value);
 
             for (int i = 0; i < blinks; i++)
             {
                 stones = Blink(stones);
             }
 
-            Console.WriteLine(stones.Count);
+            ulong total = 0;
+
+            foreach (ulong stoneFrequency in stones.Values)
+            {
+                total += stoneFrequency;
+            }
+
+            return total;
         }
 
-        static List<ulong> Blink(List<ulong> initialStones)
+        static Dictionary<ulong, ulong> Blink(Dictionary<ulong, ulong> initialStones)
         {
-            List<ulong> newStones = new List<ulong>();
+            Dictionary<ulong, ulong> newStones = new Dictionary<ulong, ulong>();
 
-            foreach (ulong stone in initialStones)
+            foreach (KeyValuePair<ulong, ulong> stoneFrequencyPair in initialStones)
             {
-                int log10stone = (int)Math.Floor(Math.Log10(stone));
+                int log10stone = (int)Math.Floor(Math.Log10(stoneFrequencyPair.Key));
 
-                if (stone == 0) newStones.Add(1);
+                if (stoneFrequencyPair.Key == 0) {
+                    if (!newStones.ContainsKey(1)) newStones.Add(1, stoneFrequencyPair.Value);
+                    else newStones[1] += stoneFrequencyPair.Value;
+                }
 
-                else if (log10stone % 2 == 1) newStones.AddRange(new List<ulong>() { GetHalves(stone).Item1, GetHalves(stone).Item2 });
+                else if (log10stone % 2 == 1)
+                {
+                    (ulong, ulong) halves = GetHalves(stoneFrequencyPair.Key);
 
-                else newStones.Add(stone * 2024);
+                    if (!newStones.ContainsKey(halves.Item1)) newStones.Add(halves.Item1, stoneFrequencyPair.Value);
+                    else newStones[halves.Item1] += stoneFrequencyPair.Value;
+
+                    if (!newStones.ContainsKey(halves.Item2)) newStones.Add(halves.Item2, stoneFrequencyPair.Value);
+                    else newStones[halves.Item2] += stoneFrequencyPair.Value;
+                }
+
+                else
+                {
+                    if (!newStones.ContainsKey(stoneFrequencyPair.Key * 2024)) newStones.Add(stoneFrequencyPair.Key * 2024, stoneFrequencyPair.Value);
+                    else newStones[stoneFrequencyPair.Key * 2024] += stoneFrequencyPair.Value;
+                }
             }
 
             return newStones;
