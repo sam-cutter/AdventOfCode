@@ -33,7 +33,7 @@ namespace Day_16
 
         static void Main(string[] args)
         {
-            string[] maze = File.ReadAllLines("test1.txt");
+            string[] maze = File.ReadAllLines("input.txt");
             Dictionary<Position, Node> cache = new Dictionary<Position, Node>();
 
             Position startingPosition = new Position();
@@ -59,7 +59,26 @@ namespace Day_16
 
             cache.Add(startingPosition, startingNode);
 
-            Djikstras(maze, cache, startingPosition, Facing.East, 0);
+            KeyValuePair<Position, Node> nextKVP = new KeyValuePair<Position, Node>(startingPosition, startingNode);
+
+            while (true)
+            {
+                Djikstras(maze, cache, nextKVP.Key, nextKVP.Value.facing, nextKVP.Value.workingValue);
+
+
+                List<KeyValuePair<Position, Node>> unlockedKVPs = cache.Where(kvp => !kvp.Value.locked).ToList();
+
+                if (unlockedKVPs.Count() > 0)
+                {
+                    KeyValuePair<Position, Node> next = unlockedKVPs.OrderBy(kvp => kvp.Value.workingValue).First();
+                    cache[next.Key] = new Node() { workingValue = next.Value.workingValue, locked = true, facing = next.Value.facing };
+
+                    nextKVP = new KeyValuePair<Position, Node>(next.Key, cache[next.Key]);
+                } else
+                {
+                    break;
+                }
+            }
 
             Console.WriteLine(cache[endingPosition].workingValue);
 
@@ -139,18 +158,6 @@ namespace Day_16
 
                 validNeighbours.Add(neighbour);
             }
-
-            List<KeyValuePair<Position, Node>> unlockedKVPs = cache.Where(kvp => !kvp.Value.locked).ToList();
-
-            if (unlockedKVPs.Count() > 0)
-            {
-                KeyValuePair<Position, Node> next = unlockedKVPs.OrderByDescending(kvp => kvp.Value.workingValue).First();
-                cache[next.Key] = new Node() { workingValue = next.Value.workingValue, locked = true, facing = next.Value.facing };
-
-                Djikstras(maze, cache, next.Key, next.Value.facing, next.Value.workingValue);
-            }
-
-            return;
         }
     }
 }
