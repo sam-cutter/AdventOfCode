@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Net.Http.Headers;
+using System.Reflection;
 
 namespace Day_16
 {
@@ -21,6 +22,7 @@ namespace Day_16
             public int workingValue;
             public bool locked;
             public Facing facing;
+            public bool backtracked;
         }
 
         enum Facing
@@ -73,7 +75,7 @@ namespace Day_16
                     KeyValuePair<Position, Node> next = unlockedKVPs.OrderBy(kvp => kvp.Value.workingValue).First();
                     cache[next.Key] = new Node() { workingValue = next.Value.workingValue, locked = true, facing = next.Value.facing };
 
-                    nextKVP = new KeyValuePair<Position, Node>(next.Key, cache[next.Key]);
+                    nextKVP = next;
                 } else
                 {
                     break;
@@ -81,6 +83,21 @@ namespace Day_16
             }
 
             Console.WriteLine(cache[endingPosition].workingValue);
+
+            List<Position> onBestPath = new List<Position>();
+            onBestPath.Add(endingPosition);
+
+            cache[endingPosition] = new Node()
+            {
+                backtracked = true,
+                workingValue = cache[endingPosition].workingValue,
+                locked = true,
+                facing = cache[endingPosition].facing,
+            };
+
+            BackTrack(maze, cache, new KeyValuePair < Position, Node > (endingPosition, cache[endingPosition]), onBestPath);
+
+            Console.WriteLine(onBestPath.Distinct().Count());
 
             Console.ReadKey();
         }
@@ -123,8 +140,6 @@ namespace Day_16
 
             Position[] neighbours = {up, down, left, right};
 
-            List<Position> validNeighbours = new List<Position>();
-
             foreach (Position neighbour in neighbours)
             {
                 if (neighbour.top < 0 || neighbour.left < 0) continue;
@@ -155,8 +170,75 @@ namespace Day_16
 
                     cache[neighbour] = new Node() { workingValue = points + 1000 + 1, locked = false, facing = neighbourFacing };
                 }
+            }
+        }
 
-                validNeighbours.Add(neighbour);
+        static void BackTrack(string[] maze, Dictionary<Position, Node> cache, KeyValuePair<Position, Node> kvp, List<Position> onBestPath)
+        {
+            Position position = kvp.Key;
+            Facing facing = kvp.Value.facing;
+            int points = kvp.Value.workingValue;
+
+            Position positionBehind = new Position() { top = position.top, left = position.left };
+
+            switch (facing)
+            {
+                case Facing.North:
+                    positionBehind.top += 1;
+                    break;
+                case Facing.South:
+                    positionBehind.top -= 1;
+                    break;
+                case Facing.West:
+                    positionBehind.left += 1;
+                    break;
+                case Facing.East:
+                    positionBehind.left -= 1;
+                    break;
+            }
+
+            Position up;
+            up.left = position.left;
+            up.top = position.top - 1;
+
+            Position down;
+            down.left = position.left;
+            down.top = position.top + 1;
+
+            Position left;
+            left.left = position.left - 1;
+            left.top = position.top;
+
+            Position right;
+            right.left = position.left + 1;
+            right.top = position.top;
+
+            Position[] neighbours = { up, down, left, right };
+
+            foreach (Position neighbour in neighbours)
+            {
+                if (neighbour.top < 0 || neighbour.left < 0) continue;
+                if (neighbour.top >= maze.Length || neighbour.left >= maze[0].Length) continue;
+                if (maze[neighbour.top][neighbour.left] == '#') continue;
+
+                int neighbourPoints;
+
+                if (neighbour.top == positionBehind.top && neighbour.left == positionBehind.left)
+                {
+                    neighbourPoints = points - 1;
+                }
+                else
+                {
+                    neighbourPoints = points - 1000 - 1;
+                }
+
+                if (cache[neighbour].workingValue != neighbourPoints) continue;
+                if (cache[neighbour].backtracked || onBestPath.Contains(neighbour)) continue;
+
+                onBestPath.Add(neighbour);
+                cache[neighbour] = new Node() { workingValue = neighbourPoints, locked = true, facing = cache[neighbour].facing };
+
+                BackTrack(maze, cache, new KeyValuePair<Position, Node>(neighbour, cache[neighbour]), onBestPath);
             }
         }
     }
