@@ -31,7 +31,7 @@ namespace Day_16__alternative_
 
         static void Main(string[] args)
         {
-            string[] maze = File.ReadAllLines("test1.txt");
+            string[] maze = File.ReadAllLines("input.txt");
 
             MAZE_HEIGHT = maze.Length;
             MAZE_WIDTH = maze[0].Length;
@@ -58,12 +58,13 @@ namespace Day_16__alternative_
 
             Dictionary<Position, Node> cache = Djikstras(maze, startingPosition);
 
-            Console.WriteLine(cache[endingPosition].entries.Min(entry => entry.Value));
+            int points = cache[endingPosition].entries.Min(entry => entry.Value);
+
+            Console.WriteLine(points);
 
             List<Position> onBestPath = new List<Position>() { endingPosition };
-            List<Position> visited = new List<Position>();
 
-            BackTrack(cache, maze, onBestPath, endingPosition);
+            BackTrack(cache, maze, onBestPath, endingPosition, points, Direction.North, true);
 
             Console.WriteLine(onBestPath.Count());
 
@@ -111,27 +112,16 @@ namespace Day_16__alternative_
                 {
                     break;
                 }
-
-                //DisplayMaze(maze, cache, squaresWithInexhaustedEntries);
-                //Console.WriteLine(squaresWithInexhaustedEntries.Count());
-                //Console.WriteLine($"({position.top}, {position.left})");
-                //Console.ReadKey();
             }
 
             return cache;
         }
 
-        static void BackTrack(Dictionary<Position, Node> cache, string[] maze, List<Position> onBestPath, Position currentPosition)
+        static void BackTrack(Dictionary<Position, Node> cache, string[] maze, List<Position> onBestPath, Position currentPosition, int exitPoints, Direction exitDirection, bool endNode)
         {
             Node currentNode = cache[currentPosition];
 
             KeyValuePair<Direction, int> lowestEntry = currentNode.entries.OrderBy(entry => entry.Value).First();
-
-            int points = lowestEntry.Value;
-            int otherPoints = points + 1000;
-
-
-            Console.WriteLine(points);
 
             Dictionary<Direction, Position> neighbours = ConstructNeighbours(currentPosition, maze);
 
@@ -141,103 +131,53 @@ namespace Day_16__alternative_
                 Position neighbourPosition = neighbour.Value;
                 Node neighbourNode = cache[neighbourPosition];
 
-                // if the 
-
-                List<int> potentialPointsForCurrentNode = new List<int>();
+                List<int> neighbourToCurrentPoints = new List<int>();
 
                 if (neighbourNode.entries.ContainsKey(neighbourDirection))
                 {
-                    potentialPointsForCurrentNode.Add(neighbourNode.entries[neighbourDirection] + 1);
+                    neighbourToCurrentPoints.Add(neighbourNode.entries[neighbourDirection] + 1);
                 }
-                if (neighbourNode.entries.Any(entry => entry.Key != neighbourDirection))
+                if (neighbourNode.entries.Any(entry => entry.Key != neighbourDirection && entry.Key != OppositeDirection(neighbourDirection)))
                 {
-                    potentialPointsForCurrentNode.Add(neighbourNode.entries.Values.Min() + 1000 + 1);
+                    neighbourToCurrentPoints.Add(
+                        neighbourNode.entries.Where(entry => entry.Key != neighbourDirection && entry.Key != OppositeDirection(neighbourDirection))
+                        .Min(entry => entry.Value) + 1000 + 1);
+                }
+
+                List<int> currentToExitPoints = new List<int>();
+
+                int nextExitPoints = 0;
+
+                if (!endNode)
+                {
+                    if (OppositeDirection(neighbourDirection) != exitDirection)
+                    {
+                        currentToExitPoints = neighbourToCurrentPoints.Select(p => p + 1000 + 1).ToList();
+                        nextExitPoints = exitPoints - 1000 - 1;
+                    }
+                    else
+                    {
+                        currentToExitPoints = neighbourToCurrentPoints.Select(p => p + 1).ToList();
+
+                        nextExitPoints = exitPoints - 1;
+                    }
+                }
+                else
+                {
+                    currentToExitPoints = neighbourToCurrentPoints;
+
+                    nextExitPoints = lowestEntry.Value;
                 }
 
                 if (onBestPath.Contains(neighbourPosition)) continue;
-                if (potentialPointsForCurrentNode.Contains(points))
-                {
-                    DisplayMazeBackTrack(maze, cache, onBestPath);
 
-                    onBestPath.Add(neighbourPosition);
+                if (!currentToExitPoints.Contains(exitPoints)) continue;
 
-                    switch (Console.ReadLine().ToLower())
-                    {
-                        case "d":
-                            Console.WriteLine(points);
-                            Console.ReadKey();
-                            break;
-                    }
+                onBestPath.Add(neighbourPosition);
 
-                    BackTrack(cache, maze, onBestPath, neighbourPosition);
-                }
+                BackTrack(cache, maze, onBestPath, neighbourPosition, nextExitPoints, OppositeDirection(neighbourDirection), false);
+
             }
-        }
-
-        static void DisplayMazeBackTrack(string[] maze, Dictionary<Position, Node> cache, List<Position> onBestPath)
-        {
-            Console.Clear();
-
-            for (int top = 0; top < maze.Length; top++)
-            {
-                Console.Write($"\n{top.ToString().PadLeft(4)} ");
-                for (int left = 0; left < maze[top].Length; left++)
-                {
-                    if (maze[top][left] == '#')
-                    {
-                        Console.BackgroundColor = ConsoleColor.White;
-                    }
-                    else
-                    {
-                        Position position = new Position() { left = left, top = top };
-
-                        if (onBestPath.Contains(position))
-                        {
-                            Console.BackgroundColor = ConsoleColor.Yellow;
-                        }
-                    }
-
-                    Console.Write(maze[top][left]);
-                    Console.BackgroundColor = ConsoleColor.Black;
-                }
-            }
-
-            Console.WriteLine();
-        }
-
-        static void DisplayMaze(string[] maze, Dictionary<Position, Node> cache, KeyValuePair<Position, Node>[] squaresWithInexhaustedEntries)
-        {
-            Console.Clear();
-
-            for (int top = 0; top < maze.Length; top++)
-            {
-                Console.Write($"\n{top.ToString().PadLeft(4)} ");
-                for (int left = 0; left < maze[top].Length; left++)
-                {
-                    if (maze[top][left] == '#')
-                    {
-                        Console.BackgroundColor = ConsoleColor.White;
-                    }
-                    else
-                    {
-                        Position position = new Position() { left = left, top = top };
-
-                        if (cache.ContainsKey(position) && !squaresWithInexhaustedEntries.Any(square => square.Key.top == position.top && square.Key.left == position.left))
-                        {
-                            Console.BackgroundColor = ConsoleColor.Red;
-                        }
-                        else if (cache.ContainsKey(position))
-                        {
-                            Console.BackgroundColor = ConsoleColor.Green;
-                        }
-                    }
-
-                    Console.Write(maze[top][left]);
-                    Console.BackgroundColor = ConsoleColor.Black;
-                }
-            }
-
-            Console.WriteLine();
         }
 
         static void UpdateNeighbours(Dictionary<Position, Node> cache, Position currentPosition, string[] maze)
@@ -313,6 +253,72 @@ namespace Day_16__alternative_
                 case Direction.South: return Direction.North;
                 default: return Direction.East;
             }
+        }
+
+        static void DisplayMazeBackTrack(string[] maze, Dictionary<Position, Node> cache, List<Position> onBestPath)
+        {
+            Console.Clear();
+
+            for (int top = 0; top < maze.Length; top++)
+            {
+                Console.Write($"\n{top.ToString().PadLeft(4)} ");
+                for (int left = 0; left < maze[top].Length; left++)
+                {
+                    if (maze[top][left] == '#')
+                    {
+                        Console.BackgroundColor = ConsoleColor.White;
+                    }
+                    else
+                    {
+                        Position position = new Position() { left = left, top = top };
+
+                        if (onBestPath.Contains(position))
+                        {
+                            Console.BackgroundColor = ConsoleColor.Yellow;
+                        }
+                    }
+
+                    Console.Write(maze[top][left]);
+                    Console.BackgroundColor = ConsoleColor.Black;
+                }
+            }
+
+            Console.WriteLine();
+        }
+
+        static void DisplayMaze(string[] maze, Dictionary<Position, Node> cache, KeyValuePair<Position, Node>[] squaresWithInexhaustedEntries)
+        {
+            Console.Clear();
+
+            for (int top = 0; top < maze.Length; top++)
+            {
+                Console.Write($"\n{top.ToString().PadLeft(4)} ");
+                for (int left = 0; left < maze[top].Length; left++)
+                {
+                    if (maze[top][left] == '#')
+                    {
+                        Console.BackgroundColor = ConsoleColor.White;
+                    }
+                    else
+                    {
+                        Position position = new Position() { left = left, top = top };
+
+                        if (cache.ContainsKey(position) && !squaresWithInexhaustedEntries.Any(square => square.Key.top == position.top && square.Key.left == position.left))
+                        {
+                            Console.BackgroundColor = ConsoleColor.Red;
+                        }
+                        else if (cache.ContainsKey(position))
+                        {
+                            Console.BackgroundColor = ConsoleColor.Green;
+                        }
+                    }
+
+                    Console.Write(maze[top][left]);
+                    Console.BackgroundColor = ConsoleColor.Black;
+                }
+            }
+
+            Console.WriteLine();
         }
     }
 }
