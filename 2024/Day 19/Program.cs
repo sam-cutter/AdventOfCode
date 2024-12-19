@@ -11,7 +11,7 @@ namespace Day_19
     {
         static void Main(string[] args)
         {
-            string[] input = File.ReadAllLines("input.txt");
+            string[] input = File.ReadAllLines("test1.txt");
 
             string[] patterns = input.First().Split(',').Select(p => p.Trim()).ToArray();
 
@@ -29,12 +29,58 @@ namespace Day_19
 
             int possibleDesigns = 0;
 
-            foreach (string design in designs)if (Possible(design, possibleSubDesigns, impossibleSubDesigns)) possibleDesigns++;
+            foreach (string design in designs) if (Possible(design, possibleSubDesigns, impossibleSubDesigns)) possibleDesigns++;
 
             Console.WriteLine(possibleDesigns);
 
+            Dictionary<char, Dictionary<string, int>> subDesigns = new Dictionary<char, Dictionary<string, int>>();
+
+            foreach (string pattern in patterns.OrderBy(p => p.Length).ToArray())
+            {
+                int waysOfMaking = WaysOfMaking(pattern, subDesigns, impossibleSubDesigns);
+
+                if (!subDesigns.ContainsKey(pattern.First()))
+                {
+                    subDesigns[pattern.First()] = new Dictionary<string, int>();
+                }
+
+                if (waysOfMaking > 0)
+                {
+                    subDesigns[pattern.First()].Add(pattern, waysOfMaking);
+                } else
+                {
+                    subDesigns[pattern.First()].Add(pattern, 1);
+                }
+            }
+
+            Console.WriteLine(subDesigns.Count);
+
             Console.ReadKey();
         }
+
+        static int WaysOfMaking(string design, Dictionary<char, Dictionary<string, int>> subDesigns, Dictionary<char, List<string>> impossibleSubDesigns)
+        {
+            int waysOfMaking = 0;
+
+            if (!subDesigns.ContainsKey(design.First())) return 0;
+            if (subDesigns[design.First()].ContainsKey(design)) return subDesigns[design.First()][design];
+            if (impossibleSubDesigns.ContainsKey(design.First()) && impossibleSubDesigns[design.First()].Contains(design)) return 0;
+
+            foreach (KeyValuePair<string, int> kvp in subDesigns[design.First()])
+            {
+                if (kvp.Key.Length > design.Length) continue;
+                if (design.Substring(0, kvp.Key.Length) != kvp.Key) continue;
+
+                string remainingDesign = design.Substring(kvp.Key.Length);
+
+                int waysOfMakingRemaining = WaysOfMaking(remainingDesign, subDesigns, impossibleSubDesigns);
+
+                waysOfMaking += kvp.Value * waysOfMakingRemaining;
+            }
+
+            return waysOfMaking;
+        }
+
 
         static bool Possible(string design, Dictionary<char, List<string>> possibleSubDesigns, Dictionary<char, List<string>> impossibleSubDesigns)
         {
@@ -48,7 +94,6 @@ namespace Day_19
                 if (design.Substring(0, pattern.Length) != pattern) continue;
 
                 string remainingDesign = design.Substring(pattern.Length);
-                if (remainingDesign.Length == 0) return true;
 
                 bool possible = Possible(remainingDesign, possibleSubDesigns, impossibleSubDesigns);
 
@@ -56,7 +101,8 @@ namespace Day_19
                 {
                     possibleSubDesigns[design.First()].Add(design);
                     return true;
-                } if (!possible)
+                }
+                if (!possible)
                 {
                     if (impossibleSubDesigns.ContainsKey(design.First())) impossibleSubDesigns[design.First()].Add(design);
                     else impossibleSubDesigns[design.First()] = new List<string> { design };
