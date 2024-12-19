@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -33,50 +34,25 @@ namespace Day_19
 
             Console.WriteLine(possibleDesigns);
 
-            Dictionary<char, Dictionary<string, int>> subDesigns = new Dictionary<char, Dictionary<string, int>>();
+            int total = 0;
 
-            foreach (string pattern in patterns.OrderBy(p => p.Length).ToArray())
+            foreach (string design in designs)
             {
-                int waysOfMaking = WaysOfMaking(pattern, subDesigns, impossibleSubDesigns);
+                if (!Possible(design, possibleSubDesigns, impossibleSubDesigns)) continue;
 
-                if (!subDesigns.ContainsKey(pattern.First()))
-                {
-                    subDesigns[pattern.First()] = new Dictionary<string, int>();
-                }
+                int waysOfMaking = WaysOfMaking(design, patterns);
 
-                if (waysOfMaking > 0)
-                {
-                    subDesigns[pattern.First()].Add(pattern, waysOfMaking);
-                } else
-                {
-                    subDesigns[pattern.First()].Add(pattern, 1);
-                }
+                total += waysOfMaking;
             }
 
-            Console.WriteLine(subDesigns.Count);
+            Console.WriteLine(total);
 
             Console.ReadKey();
         }
 
-        static int WaysOfMaking(string design, Dictionary<char, Dictionary<string, int>> subDesigns, Dictionary<char, List<string>> impossibleSubDesigns)
+        static int WaysOfMaking(string design, string[] patterns)
         {
             int waysOfMaking = 0;
-
-            if (!subDesigns.ContainsKey(design.First())) return 0;
-            if (subDesigns[design.First()].ContainsKey(design)) return subDesigns[design.First()][design];
-            if (impossibleSubDesigns.ContainsKey(design.First()) && impossibleSubDesigns[design.First()].Contains(design)) return 0;
-
-            foreach (KeyValuePair<string, int> kvp in subDesigns[design.First()])
-            {
-                if (kvp.Key.Length > design.Length) continue;
-                if (design.Substring(0, kvp.Key.Length) != kvp.Key) continue;
-
-                string remainingDesign = design.Substring(kvp.Key.Length);
-
-                int waysOfMakingRemaining = WaysOfMaking(remainingDesign, subDesigns, impossibleSubDesigns);
-
-                waysOfMaking += kvp.Value * waysOfMakingRemaining;
-            }
 
             return waysOfMaking;
         }
