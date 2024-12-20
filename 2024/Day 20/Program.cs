@@ -9,7 +9,7 @@ namespace Day_20
 {
     internal class Program
     {
-        static string[] raceTrack = File.ReadAllLines("test1.txt");
+        static string[] raceTrack = File.ReadAllLines("input.txt");
 
         struct Position
         {
@@ -35,15 +35,46 @@ namespace Day_20
         {
             List<Position> squares = Distances();
 
-            Console.WriteLine(squares.Count);
+            List<(Position, Position, int)> saves = Saves(squares);
+            saves = saves.OrderBy(save => save.Item3).ToList();
 
-            List<int> saves = Saves(squares).Select(x => x.Item3).ToList();
-            saves.Sort();
-
-            Console.WriteLine(saves.Count);
+            Console.WriteLine(saves.Where(save => save.Item3 >= 100).Count());
 
             Console.ReadKey();
             // go through each square again and calculate how much time each cheat would save
+        }
+
+        static void DisplayMaze((Position, Position, int) save)
+        {
+            Console.WriteLine("\n\n");
+
+            for (int top = 0; top < raceTrack.Length; top++)
+            {
+                Console.WriteLine();
+
+                for (int left = 0; left < raceTrack[top].Length; left++)
+                {
+                    if (top == save.Item1.top && left == save.Item1.left)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Green;
+                    }
+                    if (top == save.Item2.top && left == save.Item2.left)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Red;
+                    }
+                    if (raceTrack[top][left] == '#')
+                    {
+                        Console.ForegroundColor = ConsoleColor.White;
+                    }
+
+                    Console.Write(raceTrack[top][left]);
+
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+            }
+
+            Console.WriteLine(save.Item3);
         }
 
         static List<(Position, Position, int)> Saves(List<Position> squares)
@@ -65,6 +96,7 @@ namespace Day_20
                 {
                     Position disableForOne = new Position() { top = position.top + 2 * modifier.top, left = position.left + 2 * modifier.left };
                     Position disableForTwo = new Position() { top = position.top + 3 * modifier.top, left = position.left + 3 * modifier.left };
+                    Position squareInFront = new Position() { top = position.top + modifier.top, left = position.left + modifier.left };
 
                     Dictionary<int, Position> potentialSquares = new Dictionary<int, Position>();
 
@@ -76,7 +108,7 @@ namespace Day_20
                         if (square.Value.left < 0 || square.Value.top < 0) continue;
                         if (square.Value.left >= raceTrack[0].Length || square.Value.top >= raceTrack.Length) continue;
                         if (raceTrack[square.Value.top][square.Value.left] == '#') continue;
-                        
+
                         int timeToSquare = squares.IndexOf(square.Value);
 
                         if (timeToSquare < timeToCurrentSquare) continue;
@@ -85,6 +117,8 @@ namespace Day_20
 
                         if (timeSaved > 0)
                         {
+                            if (square.Key == 2 && raceTrack[squareInFront.top][squareInFront.left] != '#') continue;
+
                             saves.Add((position, square.Value, timeSaved));
 
                             if (square.Key == 1) break;
