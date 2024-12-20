@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Day_20
 {
@@ -16,118 +18,127 @@ namespace Day_20
             public int top; public int left;
         }
 
-        static Position NextSquare(Position position, List<Position> distances)
+        struct Node
         {
-            Position north = new Position() { top = position.top - 1, left = position.left };
-            Position south = new Position() { top = position.top + 1, left = position.left };
-            Position east = new Position() { top = position.top, left = position.left + 1 };
-            Position west = new Position() { top = position.top, left = position.left - 1 };
-
-            Position[] neighbours = { north, south, east, west };
-
-            return neighbours
-                .Where(neighbour => raceTrack[neighbour.top][neighbour.left] != '#')
-                .Where(neighbour => !distances.Contains(neighbour))
-                .First();
+            public int shortestDistance;
+            public bool locked;
         }
 
         static void Main(string[] args)
         {
             List<Position> squares = Distances();
 
-            List<(Position, Position, int)> saves = Saves(squares);
-            saves = saves.OrderBy(save => save.Item3).ToList();
+            List<(Position, Position, int)> partOneSaves = Saves(squares, 2);
+            Console.WriteLine(partOneSaves.Where(save => save.Item3 >= 100).Count());
 
-            Console.WriteLine(saves.Where(save => save.Item3 >= 100).Count());
+            List<(Position, Position, int)> partTwoSaves = Saves(squares, 20);
+            Console.WriteLine(partTwoSaves.Where(save => save.Item3 >= 100).Count());
 
             Console.ReadKey();
-            // go through each square again and calculate how much time each cheat would save
         }
 
-        static void DisplayMaze((Position, Position, int) save)
-        {
-            Console.WriteLine("\n\n");
-
-            for (int top = 0; top < raceTrack.Length; top++)
-            {
-                Console.WriteLine();
-
-                for (int left = 0; left < raceTrack[top].Length; left++)
-                {
-                    if (top == save.Item1.top && left == save.Item1.left)
-                    {
-                        Console.BackgroundColor = ConsoleColor.Green;
-                    }
-                    if (top == save.Item2.top && left == save.Item2.left)
-                    {
-                        Console.BackgroundColor = ConsoleColor.Red;
-                    }
-                    if (raceTrack[top][left] == '#')
-                    {
-                        Console.ForegroundColor = ConsoleColor.White;
-                    }
-
-                    Console.Write(raceTrack[top][left]);
-
-                    Console.BackgroundColor = ConsoleColor.Black;
-                    Console.ForegroundColor = ConsoleColor.Gray;
-                }
-            }
-
-            Console.WriteLine(save.Item3);
-        }
-
-        static List<(Position, Position, int)> Saves(List<Position> squares)
+        static List<(Position, Position, int)> Saves(List<Position> squares, int maximumDistance)
         {
             List<(Position, Position, int)> saves = new List<(Position, Position, int)>();
 
-            Position northModifier = new Position() { top = -1, left = 0 };
-            Position southModifier = new Position() { top = 1, left = 0 };
-            Position eastModifier = new Position() { top = 0, left = 1 };
-            Position westModifier = new Position() { top = 0, left = -1 };
-
-            Position[] modifiers = { northModifier, southModifier, eastModifier, westModifier };
-
-            foreach (Position position in squares)
+            foreach (Position square in squares)
             {
-                int timeToCurrentSquare = squares.IndexOf(position);
+                Dictionary<Position, Node> shortestDistances = Djikstras(square, maximumDistance)
+                    .Where(pnp => squares.Contains(pnp.Key))
+                    .Where(pnp => squares.IndexOf(pnp.Key) > squares.IndexOf(square))
+                    .ToDictionary(pnp => pnp.Key, pnp => pnp.Value);
 
-                foreach (Position modifier in modifiers)
+                foreach (KeyValuePair<Position, Node> pnp in shortestDistances)
                 {
-                    Position disableForOne = new Position() { top = position.top + 2 * modifier.top, left = position.left + 2 * modifier.left };
-                    Position disableForTwo = new Position() { top = position.top + 3 * modifier.top, left = position.left + 3 * modifier.left };
-                    Position squareInFront = new Position() { top = position.top + modifier.top, left = position.left + modifier.left };
+                    int timeSaved = (squares.IndexOf(pnp.Key) - squares.IndexOf(square)) - pnp.Value.shortestDistance;
 
-                    Dictionary<int, Position> potentialSquares = new Dictionary<int, Position>();
-
-                    potentialSquares.Add(1, disableForOne);
-                    potentialSquares.Add(2, disableForTwo);
-
-                    foreach (KeyValuePair<int, Position> square in potentialSquares)
+                    if (timeSaved > 0)
                     {
-                        if (square.Value.left < 0 || square.Value.top < 0) continue;
-                        if (square.Value.left >= raceTrack[0].Length || square.Value.top >= raceTrack.Length) continue;
-                        if (raceTrack[square.Value.top][square.Value.left] == '#') continue;
-
-                        int timeToSquare = squares.IndexOf(square.Value);
-
-                        if (timeToSquare < timeToCurrentSquare) continue;
-
-                        int timeSaved = timeToSquare - (timeToCurrentSquare + square.Key + 1);
-
-                        if (timeSaved > 0)
-                        {
-                            if (square.Key == 2 && raceTrack[squareInFront.top][squareInFront.left] != '#') continue;
-
-                            saves.Add((position, square.Value, timeSaved));
-
-                            if (square.Key == 1) break;
-                        }
+                        saves.Add((square, pnp.Key, timeSaved));
                     }
                 }
             }
 
-            return saves.Distinct().ToList();
+            return saves;
+        }
+
+        static Dictionary<Position, Node> Djikstras(Position startingPosition, int maximumDistance)
+        {
+            Dictionary<Position, Node> cache = new Dictionary<Position, Node>();
+
+            Node startingNode = new Node { shortestDistance = 0, locked = true };
+
+            cache.Add(startingPosition, startingNode);
+
+            Position position = startingPosition;
+
+            while (true)
+            {
+                UpdateNeighbourShortestDistances(cache, position, maximumDistance);
+
+                KeyValuePair<Position, Node>[] unlockedPositionNodePairs = cache
+                    .Where(pnp => !pnp.Value.locked)
+                    .ToArray();
+
+                if (unlockedPositionNodePairs.Count() > 0)
+                {
+                    position = unlockedPositionNodePairs.OrderBy(pnp => pnp.Value.shortestDistance).First().Key;
+
+                    cache[position] = new Node
+                    {
+                        shortestDistance = cache[position].shortestDistance,
+                        locked = true,
+                    };
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return cache;
+        }
+
+        static void UpdateNeighbourShortestDistances(Dictionary<Position, Node> cache, Position position, int maximumDistance)
+        {
+            if (cache[position].shortestDistance >= maximumDistance) return;
+
+            Position[] neighbours = ConstructNeighbours(position)
+                .Where(neighbour =>
+                {
+                    if (cache.ContainsKey(neighbour)) return !cache[neighbour].locked;
+                    else return true;
+                })
+                .Where(neighbour =>
+                {
+                    if (cache.ContainsKey(neighbour)) return cache[position].shortestDistance + 1 < cache[neighbour].shortestDistance;
+                    else return true;
+                })
+                .ToArray();
+
+            foreach (Position neighbour in neighbours)
+            {
+                cache[neighbour] = new Node
+                {
+                    shortestDistance = cache[position].shortestDistance + 1,
+                    locked = false,
+                };
+            }
+        }
+
+        static Position[] ConstructNeighbours(Position position)
+        {
+            Position up = new Position() { top = position.top - 1, left = position.left };
+            Position down = new Position() { top = position.top + 1, left = position.left };
+            Position left = new Position() { top = position.top, left = position.left - 1 };
+            Position right = new Position() { top = position.top, left = position.left + 1 };
+
+            Position[] neighbours = new Position[] { up, down, left, right };
+
+            return neighbours
+                .Where(neighbour => neighbour.top >= 0 && neighbour.left >= 0)
+                .Where(neighbour => neighbour.top < raceTrack.Length && neighbour.left < raceTrack[0].Length)
+                .ToArray();
         }
 
         static List<Position> Distances()
@@ -167,6 +178,49 @@ namespace Day_20
             distances.Add(end);
 
             return distances;
+        }
+
+        static Position NextSquare(Position position, List<Position> distances)
+        {
+            Position[] neighbours = ConstructNeighbours(position);
+
+            return neighbours
+                .Where(neighbour => raceTrack[neighbour.top][neighbour.left] != '#')
+                .Where(neighbour => !distances.Contains(neighbour))
+                .First();
+        }
+
+        static void DisplayRaceTrack((Position, Position, int) save)
+        {
+            Console.WriteLine("\n\n");
+
+            for (int top = 0; top < raceTrack.Length; top++)
+            {
+                Console.WriteLine();
+
+                for (int left = 0; left < raceTrack[top].Length; left++)
+                {
+                    if (top == save.Item1.top && left == save.Item1.left)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Green;
+                    }
+                    if (top == save.Item2.top && left == save.Item2.left)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Red;
+                    }
+                    if (raceTrack[top][left] == '#')
+                    {
+                        Console.ForegroundColor = ConsoleColor.White;
+                    }
+
+                    Console.Write(raceTrack[top][left]);
+
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+            }
+
+            Console.WriteLine(save.Item3);
         }
     }
 }
